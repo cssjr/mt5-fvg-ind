@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "Copyright 2024, rpanchyk"
 #property link        "https://github.com/rpanchyk"
-#property version     "1.01"
+#property version     "1.02"
 #property description "Indicator shows fair value gaps"
 
 #property indicator_chart_window
@@ -58,18 +58,21 @@ int OnInit()
    SetIndexBuffer(0, FvgHighPriceBuffer, INDICATOR_DATA);
    PlotIndexSetDouble(0, PLOT_EMPTY_VALUE, EMPTY_VALUE);
    PlotIndexSetString(0, PLOT_LABEL, "Fvg High");
+   PlotIndexSetInteger(0, PLOT_DRAW_TYPE, DRAW_NONE);
 
    ArrayInitialize(FvgLowPriceBuffer, EMPTY_VALUE);
    ArraySetAsSeries(FvgLowPriceBuffer, true);
    SetIndexBuffer(1, FvgLowPriceBuffer, INDICATOR_DATA);
    PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, EMPTY_VALUE);
    PlotIndexSetString(1, PLOT_LABEL, "Fvg Low");
+   PlotIndexSetInteger(1, PLOT_DRAW_TYPE, DRAW_NONE);
 
    ArrayInitialize(FvgTrendBuffer, EMPTY_VALUE);
    ArraySetAsSeries(FvgTrendBuffer, true);
    SetIndexBuffer(2, FvgTrendBuffer, INDICATOR_DATA);
    PlotIndexSetDouble(2, PLOT_EMPTY_VALUE, EMPTY_VALUE);
    PlotIndexSetString(2, PLOT_LABEL, "Fvg Trend");
+   PlotIndexSetInteger(2, PLOT_DRAW_TYPE, DRAW_NONE);
 
    if(InpDebugEnabled)
      {
@@ -136,13 +139,13 @@ int OnCalculate(const int rates_total,
    ArraySetAsSeries(low, true);
    ArraySetAsSeries(close, true);
 
-   int limit = (int) MathMin(rates_total, rates_total - prev_calculated + 1);
+   int limit = prev_calculated == 0 ? rates_total - 3 : rates_total - prev_calculated + 1;
    if(InpDebugEnabled)
      {
       PrintFormat("RatesTotal: %i, PrevCalculated: %i, Limit: %i", rates_total, prev_calculated, limit);
      }
 
-   for(int i = 1; i < limit - 2; i++)
+   for(int i = 1; i < limit; i++)
      {
       double rightHighPrice = high[i];
       double rightLowPrice = low[i];
