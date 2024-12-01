@@ -226,7 +226,7 @@ void SetBuffers(int index, double highPrice, double lowPrice, double trend)
   }
 
 //+------------------------------------------------------------------+
-//| Draws FVG bos                                                    |
+//| Draws FVG box                                                    |
 //+------------------------------------------------------------------+
 void DrawBox(datetime leftDt, double leftPrice, datetime rightDt, double rightPrice)
   {
