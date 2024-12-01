@@ -9,7 +9,7 @@
 #property description "Indicator shows fair value gaps"
 
 #property indicator_chart_window
-#property indicator_plots 1
+#property indicator_plots 3
 #property indicator_buffers 3
 
 // types
@@ -20,9 +20,9 @@ enum ENUM_BORDER_STYLE
   };
 
 // buffers
-double FvgHighPriceBuffer[]; // higher price of FVG
-double FvgLowPriceBuffer[]; // lower price of FVG
-double FvgTrendBuffer[]; // trend of FVG [0: DOWN, 1: UP]
+double FvgHighPriceBuffer[]; // Higher price of FVG
+double FvgLowPriceBuffer[]; // Lower price of FVG
+double FvgTrendBuffer[]; // Trend of FVG [0: NO, -1: DOWN, 1: UP]
 
 // config
 input group "Section :: Main";
@@ -36,7 +36,7 @@ input ENUM_BORDER_STYLE InpBoderStyle = BORDER_STYLE_SOLID; // Border line style
 input int InpBorderWidth = 2; // Border line width
 
 input group "Section :: Dev";
-input bool InpDebugEnabled = false; // Endble debug (verbose logging)
+input bool InpDebugEnabled = false; // Enable debug (verbose logging)
 
 // constants
 const string OBJECT_PREFIX = "FVG_";
@@ -51,17 +51,25 @@ int OnInit()
       Print("Fvg indicator initialization started");
      }
 
-   ArrayInitialize(FvgHighPriceBuffer, NULL);
-   ArrayInitialize(FvgLowPriceBuffer, NULL);
-   ArrayInitialize(FvgTrendBuffer, NULL);
+   IndicatorSetInteger(INDICATOR_DIGITS, _Digits);
 
+   ArrayInitialize(FvgHighPriceBuffer, EMPTY_VALUE);
    ArraySetAsSeries(FvgHighPriceBuffer, true);
-   ArraySetAsSeries(FvgLowPriceBuffer, true);
-   ArraySetAsSeries(FvgTrendBuffer, true);
+   SetIndexBuffer(0, FvgHighPriceBuffer, INDICATOR_DATA);
+   PlotIndexSetDouble(0, PLOT_EMPTY_VALUE, EMPTY_VALUE);
+   PlotIndexSetString(0, PLOT_LABEL, "Fvg High");
 
-   SetIndexBuffer(0, FvgHighPriceBuffer, INDICATOR_CALCULATIONS);
-   SetIndexBuffer(1, FvgLowPriceBuffer, INDICATOR_CALCULATIONS);
-   SetIndexBuffer(2, FvgTrendBuffer, INDICATOR_CALCULATIONS);
+   ArrayInitialize(FvgLowPriceBuffer, EMPTY_VALUE);
+   ArraySetAsSeries(FvgLowPriceBuffer, true);
+   SetIndexBuffer(1, FvgLowPriceBuffer, INDICATOR_DATA);
+   PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, EMPTY_VALUE);
+   PlotIndexSetString(1, PLOT_LABEL, "Fvg Down");
+
+   ArrayInitialize(FvgTrendBuffer, EMPTY_VALUE);
+   ArraySetAsSeries(FvgTrendBuffer, true);
+   SetIndexBuffer(2, FvgTrendBuffer, INDICATOR_DATA);
+   PlotIndexSetDouble(2, PLOT_EMPTY_VALUE, EMPTY_VALUE);
+   PlotIndexSetString(2, PLOT_LABEL, "Fvg Trend");
 
    if(InpDebugEnabled)
      {
@@ -80,8 +88,16 @@ void OnDeinit(const int reason)
       Print("Fvg indicator deinitialization started");
      }
 
+   ArrayFill(FvgHighPriceBuffer, 0, ArraySize(FvgHighPriceBuffer), EMPTY_VALUE);
+   ArrayResize(FvgHighPriceBuffer, 0);
    ArrayFree(FvgHighPriceBuffer);
+
+   ArrayFill(FvgLowPriceBuffer, 0, ArraySize(FvgLowPriceBuffer), EMPTY_VALUE);
+   ArrayResize(FvgLowPriceBuffer, 0);
    ArrayFree(FvgLowPriceBuffer);
+
+   ArrayFill(FvgTrendBuffer, 0, ArraySize(FvgTrendBuffer), EMPTY_VALUE);
+   ArrayResize(FvgTrendBuffer, 0);
    ArrayFree(FvgTrendBuffer);
 
    if(!MQLInfoInteger(MQL_TESTER))
@@ -139,11 +155,11 @@ int OnCalculate(const int rates_total,
       datetime leftTime = time[i + 2];
 
       // Up trend
-      if(rightLowPrice > leftHighPrice && midLowPrice >= leftLowPrice && midHighPrice <= rightHighPrice)
+      if(leftHighPrice < rightLowPrice && midLowPrice >= leftLowPrice && midHighPrice <= rightHighPrice && midHighPrice >= rightLowPrice)
         {
-         FvgHighPriceBuffer[i] = rightLowPrice;
-         FvgLowPriceBuffer[i] = leftHighPrice;
-         FvgTrendBuffer[i] = 1;
+         FvgHighPriceBuffer[i + 1] = rightLowPrice;
+         FvgLowPriceBuffer[i + 1] = leftHighPrice;
+         FvgTrendBuffer[i + 1] = 1;
 
          if(InpContinueToMitigation)
            {
@@ -164,14 +180,15 @@ int OnCalculate(const int rates_total,
             PrintFormat("Time: %s, FvgTrendBuffer: %f, FvgLowPriceBuffer: %f, FvgHighPriceBuffer: %f",
                         TimeToString(time[i]), FvgTrendBuffer[i], FvgLowPriceBuffer[i], FvgHighPriceBuffer[i]);
            }
+         continue;
         }
 
       // Down trend
-      if(rightHighPrice < leftLowPrice && midLowPrice <= leftHighPrice && midHighPrice >= rightLowPrice)
+      if(leftLowPrice > rightHighPrice && midLowPrice <= leftHighPrice && midHighPrice >= rightLowPrice && midLowPrice <= rightHighPrice)
         {
-         FvgHighPriceBuffer[i] = leftLowPrice;
-         FvgLowPriceBuffer[i] = rightHighPrice;
-         FvgTrendBuffer[i] = 0;
+         FvgHighPriceBuffer[i + 1] = leftLowPrice;
+         FvgLowPriceBuffer[i + 1] = rightHighPrice;
+         FvgTrendBuffer[i + 1] = -1;
 
          if(InpContinueToMitigation)
            {
@@ -192,7 +209,13 @@ int OnCalculate(const int rates_total,
             PrintFormat("Time: %s, FvgTrendBuffer: %f, FvgHighPriceBuffer: %f, FvgLowPriceBuffer: %f",
                         TimeToString(time[i]), FvgTrendBuffer[i], FvgHighPriceBuffer[i], FvgLowPriceBuffer[i]);
            }
+         continue;
         }
+
+      // Fvg not detected, set empty values to buffers
+      FvgHighPriceBuffer[i + 1] = 0;
+      FvgLowPriceBuffer[i + 1] = 0;
+      FvgTrendBuffer[i + 1] = 0;
      }
 
    return rates_total; // Set prev_calculated on next call
