@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "Copyright 2024, rpanchyk"
 #property link        "https://github.com/rpanchyk"
-#property version     "1.00"
+#property version     "1.01"
 #property description "Indicator shows fair value gaps"
 
 #property indicator_chart_window
@@ -63,7 +63,7 @@ int OnInit()
    ArraySetAsSeries(FvgLowPriceBuffer, true);
    SetIndexBuffer(1, FvgLowPriceBuffer, INDICATOR_DATA);
    PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, EMPTY_VALUE);
-   PlotIndexSetString(1, PLOT_LABEL, "Fvg Down");
+   PlotIndexSetString(1, PLOT_LABEL, "Fvg Low");
 
    ArrayInitialize(FvgTrendBuffer, EMPTY_VALUE);
    ArraySetAsSeries(FvgTrendBuffer, true);
@@ -157,9 +157,7 @@ int OnCalculate(const int rates_total,
       // Up trend
       if(leftHighPrice < rightLowPrice && midLowPrice >= leftLowPrice && midHighPrice <= rightHighPrice && midHighPrice >= rightLowPrice)
         {
-         FvgHighPriceBuffer[i + 1] = rightLowPrice;
-         FvgLowPriceBuffer[i + 1] = leftHighPrice;
-         FvgTrendBuffer[i + 1] = 1;
+         SetBuffers(i + 1, rightLowPrice, leftHighPrice, 1);
 
          if(InpContinueToMitigation)
            {
@@ -186,9 +184,7 @@ int OnCalculate(const int rates_total,
       // Down trend
       if(leftLowPrice > rightHighPrice && midLowPrice <= leftHighPrice && midHighPrice >= rightLowPrice && midLowPrice <= rightHighPrice)
         {
-         FvgHighPriceBuffer[i + 1] = leftLowPrice;
-         FvgLowPriceBuffer[i + 1] = rightHighPrice;
-         FvgTrendBuffer[i + 1] = -1;
+         SetBuffers(i + 1, leftLowPrice, rightHighPrice, -1);
 
          if(InpContinueToMitigation)
            {
@@ -213,16 +209,24 @@ int OnCalculate(const int rates_total,
         }
 
       // Fvg not detected, set empty values to buffers
-      FvgHighPriceBuffer[i + 1] = 0;
-      FvgLowPriceBuffer[i + 1] = 0;
-      FvgTrendBuffer[i + 1] = 0;
+      SetBuffers(i + 1, 0, 0, 0);
      }
 
    return rates_total; // Set prev_calculated on next call
   }
 
 //+------------------------------------------------------------------+
-//|                                                                  |
+//| Updates buffers with indicator data                              |
+//+------------------------------------------------------------------+
+void SetBuffers(int index, double highPrice, double lowPrice, double trend)
+  {
+   FvgHighPriceBuffer[index] = highPrice;
+   FvgLowPriceBuffer[index] = lowPrice;
+   FvgTrendBuffer[index] = trend;
+  }
+
+//+------------------------------------------------------------------+
+//| Draws FVG bos                                                    |
 //+------------------------------------------------------------------+
 void DrawBox(datetime leftDt, double leftPrice, datetime rightDt, double rightPrice)
   {
@@ -232,7 +236,7 @@ void DrawBox(datetime leftDt, double leftPrice, datetime rightDt, double rightPr
      {
       ObjectCreate(0, objName, OBJ_RECTANGLE, 0, leftDt, leftPrice, rightDt, rightPrice);
 
-      ObjectSetInteger(0, objName, OBJPROP_COLOR, leftPrice < rightPrice ? InpUpTrendColor :InpDownTrendColor);
+      ObjectSetInteger(0, objName, OBJPROP_COLOR, leftPrice < rightPrice ? InpUpTrendColor : InpDownTrendColor);
       ObjectSetInteger(0, objName, OBJPROP_FILL, InpFill);
       ObjectSetInteger(0, objName, OBJPROP_STYLE, InpBoderStyle);
       ObjectSetInteger(0, objName, OBJPROP_WIDTH, InpBorderWidth);
