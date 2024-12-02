@@ -158,15 +158,18 @@ int OnCalculate(const int rates_total,
       datetime leftTime = time[i + 2];
 
       // Up trend
-      if(leftHighPrice < rightLowPrice && midLowPrice >= leftLowPrice && midHighPrice <= rightHighPrice && midHighPrice >= rightLowPrice)
+      bool upLeft = midLowPrice <= leftHighPrice && midLowPrice > leftLowPrice;
+      bool upRight = midHighPrice >= rightLowPrice && midHighPrice < rightHighPrice;
+      bool upGap = leftHighPrice < rightLowPrice;
+      if(upLeft && upRight && upGap)
         {
          SetBuffers(i + 1, rightLowPrice, leftHighPrice, 1);
 
          if(InpContinueToMitigation)
            {
-            for(int j = i; j > 0; j--) // Search mitigation bar
+            for(int j = i - 1; j > 0; j--) // Search mitigation bar
               {
-               if(j == 1 || (rightLowPrice < high[j] && rightLowPrice > low[j]))
+               if((rightLowPrice < high[j] && rightLowPrice >= low[j]) || (leftHighPrice > low[j] && leftHighPrice <= high[j]))
                  {
                   rightTime = time[j];
                   break;
@@ -185,15 +188,18 @@ int OnCalculate(const int rates_total,
         }
 
       // Down trend
-      if(leftLowPrice > rightHighPrice && midLowPrice <= leftHighPrice && midHighPrice >= rightLowPrice && midLowPrice <= rightHighPrice)
+      bool downLeft = midHighPrice >= leftLowPrice && midHighPrice < leftHighPrice;
+      bool downRight = midLowPrice <= rightHighPrice && midLowPrice > rightLowPrice;
+      bool downGap = leftLowPrice > rightHighPrice;
+      if(downLeft && downRight && downGap)
         {
          SetBuffers(i + 1, leftLowPrice, rightHighPrice, -1);
 
          if(InpContinueToMitigation)
            {
-            for(int j = i; j > 0; j--) // Search mitigation bar
+            for(int j = i - 1; j > 0; j--) // Search mitigation bar
               {
-               if(j == 1 || (rightHighPrice < high[j] && rightHighPrice > low[j]))
+               if((rightHighPrice <= high[j] && rightHighPrice > low[j]) || (leftLowPrice >= low[j] && leftLowPrice < high[j]))
                  {
                   rightTime = time[j];
                   break;
