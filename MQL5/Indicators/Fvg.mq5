@@ -167,6 +167,7 @@ int OnCalculate(const int rates_total,
 
          if(InpContinueToMitigation)
            {
+            rightTime = time[0];
             for(int j = i - 1; j > 0; j--) // Search mitigation bar
               {
                if((rightLowPrice < high[j] && rightLowPrice >= low[j]) || (leftHighPrice > low[j] && leftHighPrice <= high[j]))
@@ -197,6 +198,7 @@ int OnCalculate(const int rates_total,
 
          if(InpContinueToMitigation)
            {
+            rightTime = time[0];
             for(int j = i - 1; j > 0; j--) // Search mitigation bar
               {
                if((rightHighPrice <= high[j] && rightHighPrice > low[j]) || (leftLowPrice >= low[j] && leftLowPrice < high[j]))
