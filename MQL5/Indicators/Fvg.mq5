@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "Copyright 2024, rpanchyk"
 #property link        "https://github.com/rpanchyk"
-#property version     "1.02"
+#property version     "1.03"
 #property description "Indicator shows fair value gaps"
 
 #property indicator_chart_window
@@ -39,7 +39,9 @@ input group "Section :: Dev";
 input bool InpDebugEnabled = false; // Enable debug (verbose logging)
 
 // constants
-const string OBJECT_PREFIX = "FVG_";
+const string OBJECT_PREFIX = "FVG";
+const string OBJECT_PREFIX_CONTINUATED = OBJECT_PREFIX + "CNT";
+const string OBJECT_SEP = "#";
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -139,6 +141,42 @@ int OnCalculate(const int rates_total,
    ArraySetAsSeries(low, true);
    ArraySetAsSeries(close, true);
 
+   if(InpContinueToMitigation)
+     {
+      int total = ObjectsTotal(0, 0, OBJ_RECTANGLE);
+      for(int i = 0; i < total; i++)
+        {
+         string objName = ObjectName(0, i, 0, OBJ_RECTANGLE);
+         if(StringFind(objName, OBJECT_PREFIX_CONTINUATED) == 0)
+           {
+            string result[];
+            StringSplit(objName, StringGetCharacter(OBJECT_SEP, 0), result);
+
+            datetime leftTime = StringToTime(result[1]);
+            double leftPrice = StringToDouble(result[2]);
+            datetime rightTime = time[0];
+            double rightPrice = StringToDouble(result[4]);
+
+            if(rightPrice < high[1] && rightPrice > low[1])
+              {
+               rightTime = time[1];
+               if(ObjectDelete(0, objName))
+                 {
+                  DrawBox(leftTime, leftPrice, rightTime, rightPrice, false);
+                 }
+              }
+            else
+              {
+               ObjectMove(0, objName, 1, rightTime, rightPrice);
+               if(InpDebugEnabled)
+                 {
+                  PrintFormat("Expand box %s", objName);
+                 }
+              }
+           }
+        }
+     }
+
    int limit = prev_calculated == 0 ? rates_total - 3 : rates_total - prev_calculated + 1;
    if(InpDebugEnabled)
      {
@@ -178,13 +216,8 @@ int OnCalculate(const int rates_total,
               }
            }
 
-         DrawBox(leftTime, leftHighPrice, rightTime, rightLowPrice);
+         DrawBox(leftTime, leftHighPrice, rightTime, rightLowPrice, InpContinueToMitigation && rightTime == time[0]);
 
-         if(InpDebugEnabled)
-           {
-            PrintFormat("Time: %s, FvgTrendBuffer: %f, FvgLowPriceBuffer: %f, FvgHighPriceBuffer: %f",
-                        TimeToString(time[i]), FvgTrendBuffer[i], FvgLowPriceBuffer[i], FvgHighPriceBuffer[i]);
-           }
          continue;
         }
 
@@ -209,13 +242,8 @@ int OnCalculate(const int rates_total,
               }
            }
 
-         DrawBox(leftTime, leftLowPrice, rightTime, rightHighPrice);
+         DrawBox(leftTime, leftLowPrice, rightTime, rightHighPrice, InpContinueToMitigation && rightTime == time[0]);
 
-         if(InpDebugEnabled)
-           {
-            PrintFormat("Time: %s, FvgTrendBuffer: %f, FvgHighPriceBuffer: %f, FvgLowPriceBuffer: %f",
-                        TimeToString(time[i]), FvgTrendBuffer[i], FvgHighPriceBuffer[i], FvgLowPriceBuffer[i]);
-           }
          continue;
         }
 
@@ -234,14 +262,29 @@ void SetBuffers(int index, double highPrice, double lowPrice, double trend)
    FvgHighPriceBuffer[index] = highPrice;
    FvgLowPriceBuffer[index] = lowPrice;
    FvgTrendBuffer[index] = trend;
+
+   if(InpDebugEnabled && trend != 0)
+     {
+      PrintFormat("Time: %s, FvgTrendBuffer: %f, FvgHighPriceBuffer: %f, FvgLowPriceBuffer: %f",
+                  TimeToString(iTime(_Symbol, PERIOD_CURRENT, index)), FvgTrendBuffer[index],
+                  FvgHighPriceBuffer[index], FvgLowPriceBuffer[index]);
+     }
   }
 
 //+------------------------------------------------------------------+
 //| Draws FVG box                                                    |
 //+------------------------------------------------------------------+
-void DrawBox(datetime leftDt, double leftPrice, datetime rightDt, double rightPrice)
+void DrawBox(datetime leftDt, double leftPrice, datetime rightDt, double rightPrice, bool continuated)
   {
-   string objName = OBJECT_PREFIX + TimeToString(leftDt);
+   string objName = (continuated ? OBJECT_PREFIX_CONTINUATED : OBJECT_PREFIX)
+                    + OBJECT_SEP
+                    + TimeToString(leftDt)
+                    + OBJECT_SEP
+                    + DoubleToString(leftPrice)
+                    + OBJECT_SEP
+                    + TimeToString(rightDt)
+                    + OBJECT_SEP
+                    + DoubleToString(rightPrice);
 
    if(ObjectFind(0, objName) < 0)
      {
@@ -256,6 +299,11 @@ void DrawBox(datetime leftDt, double leftPrice, datetime rightDt, double rightPr
       ObjectSetInteger(0, objName, OBJPROP_SELECTED, false);
       ObjectSetInteger(0, objName, OBJPROP_HIDDEN, false);
       ObjectSetInteger(0, objName, OBJPROP_ZORDER, 0);
+
+      if(InpDebugEnabled)
+        {
+         PrintFormat("Draw box: %s", objName);
+        }
      }
   }
 //+------------------------------------------------------------------+
